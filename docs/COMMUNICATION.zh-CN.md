@@ -1,16 +1,16 @@
-# Web ↔ WPF ↔ Unreal communication guide
+# Web ↔ WPF ↔ Unreal 通信接入指南
 
-**English** | [简体中文](COMMUNICATION.zh-CN.md)
+[English](COMMUNICATION.md) | **简体中文**
 
-The browser must not open the localhost WebSocket directly. JavaScript sends a WebView2 web message to WPF; WPF validates and forwards it through the authenticated `digital-twin-v1` WebSocket to Unreal. Messages from Unreal travel in the opposite direction.
+网页不要直接连接本机 WebSocket。JavaScript 通过 WebView2 WebMessage 把消息交给 WPF，WPF 校验后使用带鉴权的 `digital-twin-v1` WebSocket 转发给 Unreal。Unreal 发出的消息按相反路径返回。
 
 ```text
 JavaScript ─ window.chrome.webview ─ WPF ─ WebSocket ─ Unreal C++
 ```
 
-## 1. Add Unreal module dependencies
+## 1. 添加 Unreal 模块依赖
 
-Add these modules to your game's or plugin's `.Build.cs` file:
+在游戏模块或插件的 `.Build.cs` 文件中加入以下模块：
 
 ```csharp
 PublicDependencyModuleNames.AddRange(new[]
@@ -24,9 +24,9 @@ PublicDependencyModuleNames.AddRange(new[]
 });
 ```
 
-## 2. Connect Unreal to the host
+## 2. 让 Unreal 连接宿主
 
-The WPF host automatically passes `-BridgePort`, `-BridgeToken`, and `-ParentSessionId` when it launches the packaged game. Read them and create the socket in a `UGameInstanceSubsystem`, game-instance object, or another object whose lifetime covers the application session.
+WPF 宿主启动打包后的游戏时，会自动传入 `-BridgePort`、`-BridgeToken` 和 `-ParentSessionId`。在 `UGameInstanceSubsystem`、Game Instance 对象或其他贯穿应用会话生命周期的对象中读取参数并创建 Socket。
 
 ```cpp
 #include "Async/Async.h"
@@ -51,7 +51,7 @@ bool ConnectToNexus()
     FParse::Value(FCommandLine::Get(), TEXT("ParentSessionId="), ParentSessionId);
 
 #if WITH_EDITOR
-    // Must match MainWindow.EditorDebugConnection. Development/loopback only.
+    // 必须与 MainWindow.EditorDebugConnection 一致，仅用于本机开发联调。
     if (BridgePort <= 0 || BridgeToken.IsEmpty())
     {
         BridgePort = 52317;
@@ -85,7 +85,7 @@ bool ConnectToNexus()
     });
     BridgeSocket->OnMessage().AddLambda([](const FString& Message)
     {
-        // WebSocket callbacks must not mutate Actors directly.
+        // WebSocket 回调不能直接修改 Actor。
         AsyncTask(ENamedThreads::GameThread, [Message]()
         {
             HandleBridgeMessageOnGameThread(Message);
@@ -96,7 +96,7 @@ bool ConnectToNexus()
 }
 ```
 
-The functions referenced above serialize the common protocol envelope. `payload` must contain valid JSON.
+上面引用的函数负责序列化公共协议消息信封。`payload` 必须是有效 JSON。
 
 ```cpp
 #include "Dom/JsonObject.h"
@@ -152,7 +152,7 @@ void SendBridgeResponse(
 
     const TSharedRef<FJsonObject> Envelope = MakeShared<FJsonObject>();
     Envelope->SetStringField(TEXT("version"), TEXT("1.0"));
-    Envelope->SetStringField(TEXT("id"), RequestId); // Must match the request ID.
+    Envelope->SetStringField(TEXT("id"), RequestId); // 必须与请求 ID 一致。
     Envelope->SetStringField(TEXT("kind"), TEXT("response"));
     Envelope->SetStringField(TEXT("type"), Type);
     Envelope->SetNumberField(TEXT("timestamp"), UnixTimeMilliseconds());
@@ -166,7 +166,7 @@ void SendBridgeResponse(
 }
 ```
 
-Parse requests on the game thread and return a response with the same `id` and `type`:
+在 Game Thread 上解析请求，并使用相同的 `id` 和 `type` 返回响应：
 
 ```cpp
 void HandleBridgeMessageOnGameThread(const FString& Message)
@@ -187,16 +187,16 @@ void HandleBridgeMessageOnGameThread(const FString& Message)
         if (Envelope->TryGetObjectField(TEXT("payload"), Payload) &&
             Payload && (*Payload)->TryGetStringField(TEXT("guid"), Guid))
         {
-            // Find and select the Actor here. This code is now on the game thread.
+            // 在这里查找并选中 Actor。当前代码已经运行在 Game Thread。
             SendBridgeResponse(Id, Type, true, TEXT("{\"accepted\":true}"));
         }
     }
 }
 ```
 
-Call the connection function during initialization, close and reset the socket during shutdown, and implement bounded exponential reconnect delays for production use.
+在初始化阶段调用连接函数，在退出阶段关闭并释放 Socket；生产环境还应实现有上限的指数退避重连。
 
-For example, a `UGameInstanceSubsystem` can own the connection lifecycle:
+例如，可以由 `UGameInstanceSubsystem` 管理连接生命周期：
 
 ```cpp
 void UYourBridgeSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -216,33 +216,33 @@ void UYourBridgeSubsystem::Deinitialize()
 }
 ```
 
-## 3. Send and receive in JavaScript
+## 3. 在 JavaScript 中收发消息
 
-Copy [`samples/web/bridge-client.js`](../samples/web/bridge-client.js) into your frontend. JavaScript communicates with WPF, not with `ws://127.0.0.1`:
+把 [`samples/web/bridge-client.js`](../samples/web/bridge-client.js) 复制到前端项目。JavaScript 与 WPF 通信，不直接连接 `ws://127.0.0.1`：
 
 ```js
 import { UnrealBridgeClient } from "./bridge-client.js";
 
 const unreal = new UnrealBridgeClient();
 
-// Web -> Unreal request. Unreal returns a response with the same ID.
+// Web -> Unreal 请求。Unreal 使用相同 ID 返回响应。
 const result = await unreal.request("actor.select", {
   guid: "3e713d",
   focus: true,
 });
-console.log("Unreal accepted selection", result);
+console.log("Unreal 已接受选择", result);
 
-// Unreal -> Web event.
+// Unreal -> Web 事件。
 unreal.on("actor.selected", (payload) => {
-  console.log("Selected in Unreal", payload.guid);
+  console.log("Unreal 当前选中", payload.guid);
 });
 
 unreal.on("system.bridgeState", ({ connected }) => {
-  console.log("Unreal bridge connected:", connected);
+  console.log("Unreal Bridge 已连接：", connected);
 });
 ```
 
-For `camera.changed`, acknowledge only after the camera data has been applied to the DOM. This lets WPF and Unreal keep only one in-flight frame and one latest pending frame instead of building a latency queue:
+处理 `camera.changed` 时，必须等相机数据真正应用到 DOM 后再确认。这样 WPF 和 Unreal 只保留一个正在处理的帧以及一个最新待处理帧，不会形成延迟队列：
 
 ```js
 unreal.on("camera.changed", (camera) => {
@@ -256,4 +256,4 @@ unreal.on("camera.changed", (camera) => {
 });
 ```
 
-Only types in [`BridgeProtocol.AllowedMessageTypes`](../src/DigitalTwin.Host/Protocol/BridgeProtocol.cs) are forwarded. Add new application message types to that allowlist before using them.
+WPF 只会转发 [`BridgeProtocol.AllowedMessageTypes`](../src/DigitalTwin.Host/Protocol/BridgeProtocol.cs) 白名单中的类型。使用新的业务消息类型前，需要先将其加入白名单。
