@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebView2 DOM 拖放格子测试</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, "Microsoft YaHei", system-ui, sans-serif;
+      background: #0b1020;
+      color: #e7ecf8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; padding: 32px; }
+    main { width: min(900px, 100%); margin: 0 auto; }
+    h1 { margin: 0 0 8px; font-size: 26px; }
+    .hint { margin: 0 0 24px; color: #9ba9c7; }
+    .layout { display: grid; grid-template-columns: 180px 1fr; gap: 24px; }
+    .tray, .cell, .log {
+      border: 1px solid #293654;
+      border-radius: 12px;
+      background: #111a2e;
+    }
+    .tray { min-height: 320px; padding: 16px; }
+    .tray h2, .log h2 { margin: 0 0 14px; font-size: 15px; color: #aebbd5; }
+    .card {
+      width: 100%;
+      margin: 0 0 10px;
+      padding: 13px 12px;
+      border: 1px solid #6595ff;
+      border-radius: 9px;
+      background: #244a9a;
+      color: white;
+      cursor: grab;
+      user-select: none;
+    }
+    .card:active { cursor: grabbing; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .cell {
+      min-height: 148px;
+      padding: 10px;
+      border-style: dashed;
+      transition: border-color .12s, background .12s;
+    }
+    .cell::before { content: attr(data-label); color: #657391; font-size: 12px; }
+    .cell.drag-over { border-color: #6ce2a6; background: #123528; }
+    .cell .card { margin-top: 9px; }
+    .log { margin-top: 24px; padding: 14px 16px; }
+    #events { min-height: 42px; margin: 0; color: #91e6b7; white-space: pre-wrap; }
+    @media (max-width: 680px) {
+      body { padding: 18px; }
+      .layout { grid-template-columns: 1fr; }
+      .tray { min-height: auto; }
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main data-web-hit>
+    <h1>DOM 拖放格子测试</h1>
+    <p class="hint">把左侧任意元素拖进一个格子。成功时格子会变绿，松手后元素应留在格子中。</p>
+    <div class="layout">
+      <section class="tray" id="tray">
+        <h2>可拖动元素</h2>
+        <div class="card" id="card-a" draggable="true">元素 A</div>
+        <div class="card" id="card-b" draggable="true">元素 B</div>
+        <div class="card" id="card-c" draggable="true">元素 C</div>
+      </section>
+      <section class="grid" id="grid">
+        <div class="cell" data-label="格子 1"></div>
+        <div class="cell" data-label="格子 2"></div>
+        <div class="cell" data-label="格子 3"></div>
+        <div class="cell" data-label="格子 4"></div>
+        <div class="cell" data-label="格子 5"></div>
+        <div class="cell" data-label="格子 6"></div>
+      </section>
+    </div>
+    <section class="log">
+      <h2>最近事件</h2>
+      <pre id="events">等待拖动…</pre>
+    </section>
+  </main>
+  <script>
+    const log = document.querySelector('#events');
+    const events = [];
+    const write = message => {
+      events.unshift(message);
+      log.textContent = events.slice(0, 5).join('\n');
+    };
+
+    document.addEventListener('dragstart', event => {
+      const card = event.target.closest('.card');
+      if (!card) return;
+      event.dataTransfer.setData('text/plain', card.id);
+      event.dataTransfer.effectAllowed = 'move';
+      write(`dragstart: ${card.textContent}`);
+    });
+
+    document.querySelectorAll('.cell').forEach(cell => {
+      cell.addEventListener('dragenter', () => cell.classList.add('drag-over'));
+      cell.addEventListener('dragover', event => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+      });
+      cell.addEventListener('dragleave', event => {
+        if (!cell.contains(event.relatedTarget)) cell.classList.remove('drag-over');
+      });
+      cell.addEventListener('drop', event => {
+        event.preventDefault();
+        cell.classList.remove('drag-over');
+        const id = event.dataTransfer.getData('text/plain');
+        const card = document.getElementById(id);
+        if (!card) return write(`drop 失败: 找不到 ${id || 'dataTransfer 数据'}`);
+        cell.appendChild(card);
+        write(`drop 成功: ${card.textContent} → ${cell.dataset.label}`);
+      });
+    });
+
+    if (new URLSearchParams(location.search).has('autotest')) {
+      setTimeout(() => {
+        const card = document.querySelector('#card-a');
+        const cell = document.querySelectorAll('.cell')[4];
+        const from = card.getBoundingClientRect();
+        const to = cell.getBoundingClientRect();
+        const pointerId = 41;
+        const fire = (target, type, x, y, buttons) => target.dispatchEvent(new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          pointerId,
+          pointerType: 'mouse',
+          isPrimary: true,
+          button: type === 'pointermove' ? -1 : 0,
+          buttons,
+          clientX: x,
+          clientY: y
+        }));
+
+        fire(card, 'pointerdown', from.left + from.width / 2, from.top + from.height / 2, 1);
+        fire(card, 'pointermove', from.right + 20, from.top + from.height / 2, 1);
+        fire(card, 'pointermove', to.left + to.width / 2, to.top + to.height / 2, 1);
+        fire(card, 'pointerup', to.left + to.width / 2, to.top + to.height / 2, 0);
+
+        setTimeout(() => {
+          const passed = card.parentElement === cell;
+          document.title = `${passed ? 'PASS' : 'FAIL'} - WebView2 DOM 拖放格子测试`;
+          write(passed ? '自动测试通过' : '自动测试失败');
+        }, 100);
+      }, 300);
+    }
+  </script>
+</body>
+</html>

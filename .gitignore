@@ -1,0 +1,33 @@
+# Visual Studio / .NET
+.vs/
+.idea/
+.vscode/
+**/bin/
+**/obj/
+*.user
+*.suo
+*.pdb
+TestResults/
+
+# Local build and packaged application outputs
+artifacts/
+unreal/
+publish/
+*.zip
+*.log
+
+# WebView2 runtime data
+**/EBWebView/
+**/WebView2Data/
+
+# Local integration-test captures
+/问题截图.png
+/问题截图2.png
+
+# Private development requirements and test notes
+/WPF_WebView2_Unreal_Integration_Development_Guide.md
+/INTEGRATION_TEST_REPORT.md
+
+# OS files
+.DS_Store
+Thumbs.db

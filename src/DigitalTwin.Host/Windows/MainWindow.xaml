@@ -1,0 +1,175 @@
+<Window x:Class="DigitalTwin.Host.Windows.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Topmost="False"
+        ShowActivated="False">
+    <Window.Resources>
+        <Style x:Key="WindowControlButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="#FF30343A" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBackground"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="5">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBackground" Property="Background" Value="#FF4B5159" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBackground" Property="Background" Value="#FF17191C" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid Background="{x:Null}">
+        <Border x:Name="EditorWaitingBackground"
+                Background="#FF111315"
+                BorderBrush="#FF454A50"
+                BorderThickness="1"
+                Visibility="Collapsed" />
+
+        <!-- WebView2 composition pixels do not participate in WPF layered-window
+             hit testing. The host paints one-alpha rectangles here only beneath
+             interactive web regions, without clipping the WebView visuals. -->
+        <Canvas x:Name="HitRegionBacking"
+                IsHitTestVisible="False" />
+
+        <wv2:WebView2CompositionControl x:Name="WebView"
+                                        DefaultBackgroundColor="Transparent"
+                                        AllowDrop="True" />
+
+        <Border x:Name="StatusPanel"
+                Background="#FFF7F7F7"
+                Visibility="Visible">
+            <StackPanel Width="620"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                <TextBlock x:Name="StatusTitle"
+                           FontSize="24"
+                           FontWeight="SemiBold"
+                           Foreground="#FF202124"
+                           Text="正在启动 WebView2…"
+                           TextAlignment="Center" />
+                <TextBlock x:Name="StatusMessage"
+                           Margin="0,18,0,0"
+                           FontSize="15"
+                           Foreground="#FF5F6368"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center" />
+                <Button x:Name="RetryButton"
+                        Width="120"
+                        Height="36"
+                        Margin="0,24,0,0"
+                        Content="重试"
+                        Click="RetryButton_OnClick"
+                        Visibility="Collapsed" />
+            </StackPanel>
+        </Border>
+
+        <Border x:Name="ControlBar"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,12,12,0"
+                Padding="4"
+                Background="#DC17191C"
+                CornerRadius="8"
+                Visibility="Collapsed">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="DevToolsButton"
+                        MinWidth="64"
+                        Content="控制台"
+                        ToolTip="打开 WebView2 开发者工具（F12）"
+                        IsEnabled="False"
+                        Style="{StaticResource WindowControlButtonStyle}"
+                        Click="DevToolsButton_OnClick" />
+                <Button x:Name="FullScreenButton"
+                        MinWidth="64"
+                        Content="全屏"
+                        ToolTip="切换全屏/窗口化"
+                        IsEnabled="False"
+                        Style="{StaticResource WindowControlButtonStyle}"
+                        Click="FullScreenButton_OnClick" />
+                <Button x:Name="RefreshButton"
+                        MinWidth="56"
+                        Content="刷新"
+                        ToolTip="刷新网页"
+                        Style="{StaticResource WindowControlButtonStyle}"
+                        Click="RefreshButton_OnClick" />
+                <Button x:Name="MinimizeButton"
+                        Width="42"
+                        Content="—"
+                        ToolTip="最小化"
+                        FontSize="18"
+                        Style="{StaticResource WindowControlButtonStyle}"
+                        Click="MinimizeButton_OnClick" />
+                <Button x:Name="ExitButton"
+                        Width="42"
+                        Content="×"
+                        ToolTip="退出"
+                        FontSize="19"
+                        Background="#FFC8403A"
+                        Style="{StaticResource WindowControlButtonStyle}"
+                        Click="ExitButton_OnClick" />
+            </StackPanel>
+        </Border>
+
+        <Border x:Name="EditorWaitingChrome"
+                Height="36"
+                VerticalAlignment="Top"
+                Background="#FF17191C"
+                BorderBrush="#FF454A50"
+                BorderThickness="1,1,1,0"
+                Visibility="Collapsed"
+                MouseLeftButtonDown="EditorWaitingChrome_OnMouseLeftButtonDown">
+            <Grid>
+                <TextBlock Margin="12,0,96,0"
+                           VerticalAlignment="Center"
+                           Foreground="White"
+                           FontSize="13"
+                           Text="Digital Twin Web Viewer · 等待 Unreal Standalone Game" />
+                <StackPanel HorizontalAlignment="Right"
+                            Orientation="Horizontal">
+                    <Button Width="44"
+                            Height="34"
+                            Content="—"
+                            ToolTip="最小化"
+                            FontSize="18"
+                            Style="{StaticResource WindowControlButtonStyle}"
+                            Click="MinimizeButton_OnClick" />
+                    <Button Width="44"
+                            Height="34"
+                            Content="×"
+                            ToolTip="退出"
+                            FontSize="19"
+                            Background="#FFC8403A"
+                            Style="{StaticResource WindowControlButtonStyle}"
+                            Click="ExitButton_OnClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
