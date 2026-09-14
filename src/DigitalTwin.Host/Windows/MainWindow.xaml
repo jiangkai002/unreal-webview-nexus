@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         WindowStartupLocation="CenterScreen"
+        Icon="/DigitalTwinClient;component/Assets/AppIcon.ico"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -12,20 +13,22 @@
         ShowActivated="False">
     <Window.Resources>
         <Style x:Key="WindowControlButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="36" />
-            <Setter Property="Margin" Value="2,0" />
-            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="Margin" Value="0.5,0" />
+            <Setter Property="Padding" Value="0" />
             <Setter Property="Foreground" Value="White" />
             <Setter Property="Background" Value="#FF30343A" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="10" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="ButtonBackground"
                                 Background="{TemplateBinding Background}"
-                                CornerRadius="5">
+                                CornerRadius="2">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center" />
                         </Border>
@@ -93,44 +96,31 @@
         <Border x:Name="ControlBar"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
-                Margin="0,12,12,0"
-                Padding="4"
+                Margin="0,3,3,0"
+                Padding="1"
                 Background="#DC17191C"
-                CornerRadius="8"
+                CornerRadius="3"
                 Visibility="Collapsed">
             <StackPanel Orientation="Horizontal">
-                <Button x:Name="DevToolsButton"
-                        MinWidth="64"
-                        Content="控制台"
-                        ToolTip="打开 WebView2 开发者工具（F12）"
-                        IsEnabled="False"
-                        Style="{StaticResource WindowControlButtonStyle}"
-                        Click="DevToolsButton_OnClick" />
                 <Button x:Name="FullScreenButton"
-                        MinWidth="64"
-                        Content="全屏"
+                        Content="&#xE740;"
                         ToolTip="切换全屏/窗口化"
                         IsEnabled="False"
                         Style="{StaticResource WindowControlButtonStyle}"
                         Click="FullScreenButton_OnClick" />
                 <Button x:Name="RefreshButton"
-                        MinWidth="56"
-                        Content="刷新"
+                        Content="&#xE72C;"
                         ToolTip="刷新网页"
                         Style="{StaticResource WindowControlButtonStyle}"
                         Click="RefreshButton_OnClick" />
                 <Button x:Name="MinimizeButton"
-                        Width="42"
-                        Content="—"
+                        Content="&#xE921;"
                         ToolTip="最小化"
-                        FontSize="18"
                         Style="{StaticResource WindowControlButtonStyle}"
                         Click="MinimizeButton_OnClick" />
                 <Button x:Name="ExitButton"
-                        Width="42"
-                        Content="×"
+                        Content="&#xE8BB;"
                         ToolTip="退出"
-                        FontSize="19"
                         Background="#FFC8403A"
                         Style="{StaticResource WindowControlButtonStyle}"
                         Click="ExitButton_OnClick" />
@@ -152,19 +142,14 @@
                            FontSize="13"
                            Text="Digital Twin Web Viewer · 等待 Unreal Standalone Game" />
                 <StackPanel HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
                             Orientation="Horizontal">
-                    <Button Width="44"
-                            Height="34"
-                            Content="—"
+                    <Button Content="&#xE921;"
                             ToolTip="最小化"
-                            FontSize="18"
                             Style="{StaticResource WindowControlButtonStyle}"
                             Click="MinimizeButton_OnClick" />
-                    <Button Width="44"
-                            Height="34"
-                            Content="×"
+                    <Button Content="&#xE8BB;"
                             ToolTip="退出"
-                            FontSize="19"
                             Background="#FFC8403A"
                             Style="{StaticResource WindowControlButtonStyle}"
                             Click="ExitButton_OnClick" />

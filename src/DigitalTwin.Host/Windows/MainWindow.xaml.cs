@@ -63,9 +63,6 @@ public partial class MainWindow : Window
         ControlBar.Visibility = useUnrealOverlay && !options.Unreal.EditorDebugMode
             ? Visibility.Visible
             : Visibility.Collapsed;
-        DevToolsButton.Visibility = options.Web.EnableDevTools
-            ? Visibility.Visible
-            : Visibility.Collapsed;
         if (!useUnrealOverlay)
         {
             AllowsTransparency = false;
@@ -81,6 +78,7 @@ public partial class MainWindow : Window
 
         Loaded += MainWindow_OnLoaded;
         Closing += MainWindow_OnClosing;
+        AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(MainWindow_OnPreviewKeyDown), true);
     }
 
     private async void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
@@ -130,6 +128,7 @@ public partial class MainWindow : Window
 
                 EnsureOverlayWindowManager();
                 _overlayWindowManager!.Attach(unrealHwnd);
+                _overlayWindowManager.ToggleFullScreen();
                 _overlayAttached = true;
                 FullScreenButton.IsEnabled = true;
                 if (_options.Web.EnableAutomaticHitRegions && _hasWebRegionSnapshot)
@@ -188,7 +187,6 @@ public partial class MainWindow : Window
         }
 
         _webViewInitialized = true;
-        DevToolsButton.IsEnabled = _options.Web.EnableDevTools;
     }
 
     private async Task InitializeBridgeAsync()
@@ -481,11 +479,12 @@ public partial class MainWindow : Window
         _overlayWindowManager?.ToggleFullScreen();
     }
 
-    private void DevToolsButton_OnClick(object sender, RoutedEventArgs e)
+    private void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (_webViewInitialized && _options.Web.EnableDevTools)
+        if (e.Key == Key.F12 && _webViewInitialized && _options.Web.EnableDevTools)
         {
             WebView.CoreWebView2.OpenDevToolsWindow();
+            e.Handled = true;
         }
     }
 
@@ -629,7 +628,7 @@ public partial class MainWindow : Window
 
     private void OverlayWindowManager_OnFullScreenChanged(object? sender, EventArgs e)
     {
-        FullScreenButton.Content = _overlayWindowManager?.IsFullScreen == true ? "窗口化" : "全屏";
+        FullScreenButton.Content = _overlayWindowManager?.IsFullScreen == true ? "\uE73F" : "\uE740";
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, ApplyCurrentRegions);
     }
 
@@ -692,6 +691,7 @@ public partial class MainWindow : Window
         // owned windows with their owner, while Standalone Game is expected to be
         // closed and relaunched repeatedly during one WPF debugging session.
         _overlayWindowManager!.Attach(hwnd, setUnrealAsOwner: false);
+        _overlayWindowManager.ToggleFullScreen();
         _overlayAttached = true;
         FullScreenButton.IsEnabled = true;
         ApplyCurrentRegions();
@@ -703,7 +703,7 @@ public partial class MainWindow : Window
         _editorStandaloneHwnd = IntPtr.Zero;
         _overlayAttached = false;
         FullScreenButton.IsEnabled = false;
-        FullScreenButton.Content = "全屏";
+        FullScreenButton.Content = "\uE740";
         ShowInTaskbar = true;
         SetEditorWaitingPresentation(isWaiting: true);
 
