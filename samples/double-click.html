@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WAIT - WebView2 双击测试</title>
+  <style>
+    :root { color-scheme: dark; font-family: "Microsoft YaHei", system-ui, sans-serif; }
+    body { display: grid; min-height: 100vh; margin: 0; place-items: center; background: #0b1020; }
+    #target {
+      width: 360px; padding: 52px 24px; border: 2px solid #54b7ff; border-radius: 16px;
+      background: #16365d; color: white; text-align: center; user-select: none;
+    }
+    #result { display: block; margin-top: 16px; color: #a9bad3; }
+  </style>
+</head>
+<body>
+  <div id="target" data-web-hit>
+    双击此区域
+    <span id="result">等待 dblclick…</span>
+  </div>
+  <script>
+    const target = document.querySelector('#target');
+    const result = document.querySelector('#result');
+    target.addEventListener('dblclick', event => {
+      result.textContent = `PASS · detail=${event.detail}`;
+      document.title = 'PASS - WebView2 双击测试';
+    });
+  </script>
+</body>
+</html>

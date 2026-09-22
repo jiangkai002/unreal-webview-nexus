@@ -33,6 +33,8 @@ public sealed class WebOptions
 {
     public string Url { get; init; } = string.Empty;
 
+    public bool ClearCacheOnStartup { get; init; }
+
     public bool EnableDevTools { get; init; } = true;
 
     public bool EnableDefaultContextMenus { get; init; } = true;

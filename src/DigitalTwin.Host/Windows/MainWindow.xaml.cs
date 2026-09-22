@@ -16,6 +16,11 @@ namespace DigitalTwin.Host.Windows;
 
 public partial class MainWindow : Window
 {
+    private const CoreWebView2BrowsingDataKinds WebCacheDataKinds =
+        CoreWebView2BrowsingDataKinds.DiskCache |
+        CoreWebView2BrowsingDataKinds.CacheStorage |
+        CoreWebView2BrowsingDataKinds.ServiceWorkers;
+
     private static readonly BridgeConnectionInfo EditorDebugConnection = new(
         52317,
         "remviewer-editor-debug-token-v1",
@@ -39,6 +44,7 @@ public partial class MainWindow : Window
     private bool _webPointerCaptured;
     private bool _webViewInitialized;
     private bool _overlayAttached;
+    private bool _isClearingWebCache;
     private bool _shutdownStarted;
     private bool _shutdownCompleted;
 
@@ -180,10 +186,18 @@ public partial class MainWindow : Window
 
         await WebView.EnsureCoreWebView2Async(environment);
         ConfigureWebView(WebView.CoreWebView2);
+        await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+            DoubleClickCompatibilityScript.Source);
         if (_options.Web.EnableAutomaticHitRegions)
         {
             await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
                 HitRegionScript.CreateSource(_options.Web.TransparentBackground));
+        }
+
+        if (_options.Web.ClearCacheOnStartup)
+        {
+            ShowLoading("正在清除网页缓存…");
+            await ClearWebCacheAsync(reloadAfterwards: false);
         }
 
         _webViewInitialized = true;
@@ -453,6 +467,7 @@ public partial class MainWindow : Window
 
     private void ShowError(string title, string message, bool canRetry)
     {
+        EnsureStartupFailureIsVisible();
         StatusTitle.Text = title;
         StatusMessage.Text = message;
         RetryButton.Visibility = canRetry ? Visibility.Visible : Visibility.Collapsed;
@@ -481,6 +496,16 @@ public partial class MainWindow : Window
 
     private void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.R &&
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Control) &&
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) &&
+            _webViewInitialized)
+        {
+            e.Handled = true;
+            _ = ClearWebCacheFromUiAsync();
+            return;
+        }
+
         if (e.Key == Key.F12 && _webViewInitialized && _options.Web.EnableDevTools)
         {
             WebView.CoreWebView2.OpenDevToolsWindow();
@@ -493,6 +518,81 @@ public partial class MainWindow : Window
         if (_webViewInitialized)
         {
             WebView.CoreWebView2.Reload();
+        }
+    }
+
+    private void EnsureStartupFailureIsVisible()
+    {
+        if (_overlayAttached ||
+            (Opacity > 0 && ActualWidth >= 640 && ActualHeight >= 480))
+        {
+            return;
+        }
+
+        WindowState = WindowState.Normal;
+        Width = Math.Max(640, _options.Window.Width);
+        Height = Math.Max(480, _options.Window.Height);
+
+        var workArea = SystemParameters.WorkArea;
+        Left = workArea.Left + Math.Max(0, (workArea.Width - Width) / 2);
+        Top = workArea.Top + Math.Max(0, (workArea.Height - Height) / 2);
+        ShowInTaskbar = true;
+        ShowActivated = true;
+        Opacity = 1;
+        Show();
+        Activate();
+    }
+
+    private async void ClearCacheButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        await ClearWebCacheFromUiAsync();
+    }
+
+    private async Task ClearWebCacheFromUiAsync()
+    {
+        if (!_webViewInitialized || _isClearingWebCache)
+        {
+            return;
+        }
+
+        try
+        {
+            ShowLoading("正在清除网页缓存…");
+            await ClearWebCacheAsync(reloadAfterwards: true);
+        }
+        catch (Exception) when (_shutdown.IsCancellationRequested)
+        {
+            // The WebView may be disposed while a cache clear is in progress.
+        }
+        catch (Exception exception) when (!_shutdown.IsCancellationRequested)
+        {
+            ShowError("清除缓存失败", exception.Message, canRetry: false);
+        }
+    }
+
+    private async Task ClearWebCacheAsync(bool reloadAfterwards)
+    {
+        if (_isClearingWebCache)
+        {
+            return;
+        }
+
+        _isClearingWebCache = true;
+        ClearCacheButton.IsEnabled = false;
+        RefreshButton.IsEnabled = false;
+        try
+        {
+            await WebView.CoreWebView2.Profile.ClearBrowsingDataAsync(WebCacheDataKinds);
+            if (reloadAfterwards && !_shutdown.IsCancellationRequested)
+            {
+                WebView.CoreWebView2.Reload();
+            }
+        }
+        finally
+        {
+            _isClearingWebCache = false;
+            ClearCacheButton.IsEnabled = true;
+            RefreshButton.IsEnabled = true;
         }
     }
 

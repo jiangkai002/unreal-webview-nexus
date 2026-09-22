@@ -113,6 +113,11 @@
                         ToolTip="刷新网页"
                         Style="{StaticResource WindowControlButtonStyle}"
                         Click="RefreshButton_OnClick" />
+                <Button x:Name="ClearCacheButton"
+                        Content="&#xE74D;"
+                        ToolTip="清除网页缓存并刷新 (Ctrl+Shift+R)"
+                        Style="{StaticResource WindowControlButtonStyle}"
+                        Click="ClearCacheButton_OnClick" />
                 <Button x:Name="MinimizeButton"
                         Content="&#xE921;"
                         ToolTip="最小化"

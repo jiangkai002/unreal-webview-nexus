@@ -105,12 +105,15 @@ Key settings in `appsettings.json`:
 | Setting | Purpose |
 | --- | --- |
 | `Web.Url` | Default HTTP/HTTPS page to load |
+| `Web.ClearCacheOnStartup` | Clear disk cache, Cache Storage, and service workers on every launch (preserves sign-in and local data) |
 | `Web.TransparentBackground` | `auto`, `true`, or `false` background behavior |
 | `Web.EnableAutomaticHitRegions` | Detect and synchronize interactive DOM regions |
 | `Unreal.Enabled` | Enable Unreal launch and window integration |
 | `Unreal.ExecutablePath` | Default packaged Unreal executable path |
 | `Unreal.EditorDebugMode` | Attach to a Standalone Game window instead of launching an EXE |
 | `Unreal.EditorStandaloneWindowTitle` | Window title used for Editor attachment |
+
+At runtime, use the clear-cache button in the window control bar or press `Ctrl+Shift+R` to clear web caches and reload. Cookies, LocalStorage, and IndexedDB are preserved.
 
 ## Repository layout
 

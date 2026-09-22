@@ -105,12 +105,15 @@ Unreal 侧只负责原生渲染、场景与业务逻辑。轻量桥接客户端�
 | 配置项 | 作用 |
 | --- | --- |
 | `Web.Url` | 默认加载的 HTTP/HTTPS 网页 |
+| `Web.ClearCacheOnStartup` | 每次启动时清除磁盘缓存、Cache Storage 和 Service Worker（不清登录状态和本地数据） |
 | `Web.TransparentBackground` | `auto`、`true` 或 `false` 背景模式 |
 | `Web.EnableAutomaticHitRegions` | 自动识别并同步可交互 DOM 区域 |
 | `Unreal.Enabled` | 是否启用 Unreal 启动和窗口融合 |
 | `Unreal.ExecutablePath` | 默认 Unreal 打包 EXE 路径 |
 | `Unreal.EditorDebugMode` | 是否挂接 Standalone Game，而不是启动 EXE |
 | `Unreal.EditorStandaloneWindowTitle` | Editor 联调时用于匹配的窗口标题 |
+
+运行时可点击窗口控制条中的清缓存按钮，或按 `Ctrl+Shift+R` 清除网页缓存并重新加载。该操作不会清除 Cookie、LocalStorage 或 IndexedDB。
 
 ## 仓库结构
 
