@@ -257,3 +257,5 @@ unreal.on("camera.changed", (camera) => {
 ```
 
 WPF 只会转发 [`BridgeProtocol.AllowedMessageTypes`](../src/DigitalTwin.Host/Protocol/BridgeProtocol.cs) 白名单中的类型。使用新的业务消息类型前，需要先将其加入白名单。
+
+网页刷新或导航时，WPF 会自动释放旧文档尚未确认的相机帧，在加载期间只保留最新状态，并在新文档加载完成后恢复投递。因此刷新不会让 `camera.changed` 的 ACK 背压永久停住。

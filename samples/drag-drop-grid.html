@@ -59,7 +59,7 @@
 <body>
   <main data-web-hit>
     <h1>DOM 拖放格子测试</h1>
-    <p class="hint">把左侧任意元素拖进一个格子。成功时格子会变绿，松手后元素应留在格子中。</p>
+    <p class="hint">把左侧任意元素拖进一个格子。拖动时应有元素预览跟随鼠标，格子会变绿，松手后元素应留在格子中。</p>
     <div class="layout">
       <section class="tray" id="tray">
         <h2>可拖动元素</h2>
@@ -140,12 +140,21 @@
         fire(card, 'pointerdown', from.left + from.width / 2, from.top + from.height / 2, 1);
         fire(card, 'pointermove', from.right + 20, from.top + from.height / 2, 1);
         fire(card, 'pointermove', to.left + to.width / 2, to.top + to.height / 2, 1);
+        const preview = document.querySelector('[data-dt-drag-preview]');
+        const previewBounds = preview?.getBoundingClientRect();
+        const previewPassed = previewBounds &&
+          Math.abs(previewBounds.left - (to.left + to.width / 2 - from.width / 2)) < 1 &&
+          Math.abs(previewBounds.top - (to.top + to.height / 2 - from.height / 2)) < 1 &&
+          Math.abs(previewBounds.width - from.width) < 1 &&
+          Math.abs(previewBounds.height - from.height) < 1;
         fire(card, 'pointerup', to.left + to.width / 2, to.top + to.height / 2, 0);
 
         setTimeout(() => {
-          const passed = card.parentElement === cell;
+          const dropPassed = card.parentElement === cell;
+          const cleanupPassed = !document.querySelector('[data-dt-drag-preview]');
+          const passed = previewPassed && dropPassed && cleanupPassed;
           document.title = `${passed ? 'PASS' : 'FAIL'} - WebView2 DOM 拖放格子测试`;
-          write(passed ? '自动测试通过' : '自动测试失败');
+          write(`自动测试${passed ? '通过' : '失败'}: 预览 ${previewPassed ? 'PASS' : 'FAIL'} / 落点 ${dropPassed ? 'PASS' : 'FAIL'} / 清理 ${cleanupPassed ? 'PASS' : 'FAIL'}`);
         }, 100);
       }, 300);
     }

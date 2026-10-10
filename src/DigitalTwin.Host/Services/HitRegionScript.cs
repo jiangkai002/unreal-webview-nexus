@@ -72,6 +72,53 @@ internal static class HitRegionScript
             }
           }
 
+          function createDragPreview(state, candidate) {
+            const image = state.dragImage?.element || state.source;
+            const bounds = image.getBoundingClientRect();
+            const preview = image.cloneNode(true);
+            const originals = [image, ...image.querySelectorAll('*')];
+            const copies = [preview, ...preview.querySelectorAll('*')];
+            // Preserve the appearance even when selectors depend on an ID or
+            // the source's parent. The preview must never become a drop target.
+            originals.forEach((original, index) => {
+              const copy = copies[index];
+              const computed = getComputedStyle(original);
+              for (const property of computed) {
+                copy.style.setProperty(property, computed.getPropertyValue(property));
+              }
+              copy.removeAttribute('id');
+              copy.removeAttribute('data-web-hit');
+              copy.setAttribute('draggable', 'false');
+              copy.style.setProperty('pointer-events', 'none', 'important');
+              copy.style.setProperty('animation', 'none', 'important');
+              copy.style.setProperty('transition', 'none', 'important');
+              if (original instanceof HTMLInputElement || original instanceof HTMLTextAreaElement) {
+                copy.value = original.value;
+              }
+              if (original instanceof HTMLCanvasElement) {
+                copy.getContext('2d')?.drawImage(original, 0, 0);
+              }
+            });
+            const sourceBounds = state.source.getBoundingClientRect();
+            state.previewOffsetX = state.dragImage ? state.dragImage.x : candidate.startX - sourceBounds.left;
+            state.previewOffsetY = state.dragImage ? state.dragImage.y : candidate.startY - sourceBounds.top;
+            preview.style.setProperty('position', 'static', 'important');
+            preview.style.setProperty('margin', '0', 'important');
+            preview.style.setProperty('width', `${bounds.width}px`, 'important');
+            preview.style.setProperty('height', `${bounds.height}px`, 'important');
+            preview.style.setProperty('transform', 'none', 'important');
+
+            const layer = document.createElement('div');
+            layer.setAttribute('data-dt-drag-preview', '');
+            layer.setAttribute('aria-hidden', 'true');
+            layer.inert = true;
+            layer.style.cssText = 'position:fixed!important;left:0!important;top:0!important;' +
+              'pointer-events:none!important;z-index:2147483647!important;opacity:0.75!important;';
+            layer.appendChild(preview);
+            document.documentElement.appendChild(layer);
+            state.preview = layer;
+          }
+
           function finishEmulatedDrag(pointerEvent, cancelled) {
             const state = emulatedDrag;
             const candidate = dragCandidate;
@@ -81,6 +128,7 @@ internal static class HitRegionScript
               return;
             }
 
+            state.preview?.remove();
             if (state.target) {
               if (!cancelled && state.dropAllowed) {
                 createDragEvent('drop', state, pointerEvent, state.target);
@@ -100,6 +148,9 @@ internal static class HitRegionScript
             const state = emulatedDrag;
             if (!state) return;
 
+            state.preview.style.setProperty('transform',
+              `translate(${pointerEvent.clientX - state.previewOffsetX}px, ${pointerEvent.clientY - state.previewOffsetY}px)`,
+              'important');
             createDragEvent('drag', state, pointerEvent, state.source);
             const target = document.elementFromPoint(pointerEvent.clientX, pointerEvent.clientY);
             if (target !== state.target) {
@@ -123,12 +174,21 @@ internal static class HitRegionScript
               target: null,
               dropAllowed: false
             };
+            // Synthetic DragEvents do not get Chromium's native drag image.
+            // Capture the page's optional image during dragstart and render it
+            // in the DOM using the same cursor offset.
+            state.dataTransfer.setDragImage = (element, x, y) => {
+              if (element instanceof HTMLElement || element instanceof SVGElement) {
+                state.dragImage = { element, x, y };
+              }
+            };
             const dragStart = createDragEvent('dragstart', state, pointerEvent, state.source);
             if (dragStart.defaultPrevented) {
               restoreNativeDraggable(candidate);
               dragCandidate = null;
               return false;
             }
+            createDragPreview(state, candidate);
             emulatedDrag = state;
             dragging = true;
             syncPointerCapture();

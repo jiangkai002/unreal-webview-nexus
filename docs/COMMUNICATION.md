@@ -257,3 +257,5 @@ unreal.on("camera.changed", (camera) => {
 ```
 
 Only types in [`BridgeProtocol.AllowedMessageTypes`](../src/DigitalTwin.Host/Protocol/BridgeProtocol.cs) are forwarded. Add new application message types to that allowlist before using them.
+
+When the page refreshes or navigates, WPF automatically releases any unacknowledged camera frame owned by the old document, retains only the latest state while loading, and resumes delivery after the new document has loaded. A refresh therefore cannot permanently stall `camera.changed` ACK backpressure.

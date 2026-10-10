@@ -43,6 +43,7 @@ public partial class MainWindow : Window
     private bool _hasWebRegionSnapshot;
     private bool _webPointerCaptured;
     private bool _webViewInitialized;
+    private bool _webDocumentReady;
     private bool _overlayAttached;
     private bool _isClearingWebCache;
     private bool _shutdownStarted;
@@ -244,13 +245,19 @@ public partial class MainWindow : Window
         core.WebMessageReceived += Core_OnWebMessageReceived;
     }
 
-    private void Core_OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+    private async void Core_OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
     {
         if (!IsAllowedWebUri(e.Uri))
         {
             e.Cancel = true;
             ShowError("已阻止不安全的导航", $"仅允许打开 http:// 或 https:// 地址：\n{e.Uri}", canRetry: false);
             return;
+        }
+
+        _webDocumentReady = false;
+        if (_bridgeRouter is not null)
+        {
+            await _bridgeRouter.BeginWebNavigationAsync();
         }
 
         _lastWebRegions = [];
@@ -265,10 +272,16 @@ public partial class MainWindow : Window
         ShowLoading("网页加载中…");
     }
 
-    private void Core_OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+    private async void Core_OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
     {
         if (e.IsSuccess)
         {
+            _webDocumentReady = true;
+            if (_bridgeRouter is not null)
+            {
+                await _bridgeRouter.CompleteWebNavigationAsync();
+            }
+
             StatusPanel.Visibility = Visibility.Collapsed;
             ApplyCurrentRegions();
             return;
@@ -386,7 +399,9 @@ public partial class MainWindow : Window
 
         await Dispatcher.InvokeAsync(() =>
         {
-            if (_webViewInitialized && !_shutdown.IsCancellationRequested)
+            if (_webViewInitialized &&
+                _webDocumentReady &&
+                !_shutdown.IsCancellationRequested)
             {
                 WebView.CoreWebView2.PostWebMessageAsJson(json);
             }

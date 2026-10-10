@@ -10,6 +10,9 @@ public sealed class BridgeMessageRouter : IDisposable
     private readonly object _cameraLock = new();
     private string? _latestPendingCameraMessage;
     private bool _cameraMessageInFlight;
+    private bool _webDocumentReady;
+    private long _webDocumentGeneration;
+    private long _cameraMessageGeneration;
     private bool _disposed;
 
     public BridgeMessageRouter(
@@ -85,28 +88,89 @@ public sealed class BridgeMessageRouter : IDisposable
 
     public async Task AcknowledgeCameraMessageAsync()
     {
-        if (_disposed)
+        string? nextMessage;
+        long generation;
+        lock (_cameraLock)
         {
-            return;
+            if (_disposed ||
+                !_webDocumentReady ||
+                !_cameraMessageInFlight ||
+                _cameraMessageGeneration != _webDocumentGeneration)
+            {
+                return;
+            }
+
+            generation = _webDocumentGeneration;
+            nextMessage = _latestPendingCameraMessage;
+            _latestPendingCameraMessage = null;
+            if (nextMessage is null)
+            {
+                _cameraMessageInFlight = false;
+            }
         }
 
         await _server.SendAsync(
             BridgeProtocol.CreateEvent("camera.consumed", new { }),
             CancellationToken.None);
 
-        string? nextMessage;
+        if (nextMessage is not null)
+        {
+            await PostCameraMessageAsync(nextMessage, generation);
+        }
+    }
+
+    public async Task BeginWebNavigationAsync()
+    {
+        bool acknowledgeAbandonedFrame;
         lock (_cameraLock)
         {
-            nextMessage = _latestPendingCameraMessage;
-            _latestPendingCameraMessage = null;
-            if (nextMessage is null)
+            if (_disposed)
             {
-                _cameraMessageInFlight = false;
                 return;
+            }
+
+            _webDocumentReady = false;
+            _webDocumentGeneration++;
+            acknowledgeAbandonedFrame = _cameraMessageInFlight;
+            _cameraMessageInFlight = false;
+        }
+
+        // The old document can no longer acknowledge its in-flight frame. Release
+        // Unreal's producer so a fresh state can be retained for the new document.
+        if (acknowledgeAbandonedFrame)
+        {
+            await _server.SendAsync(
+                BridgeProtocol.CreateEvent("camera.consumed", new { }),
+                CancellationToken.None);
+        }
+    }
+
+    public async Task CompleteWebNavigationAsync()
+    {
+        string? messageToPost;
+        long generation;
+        lock (_cameraLock)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _webDocumentReady = true;
+            generation = _webDocumentGeneration;
+            messageToPost = _latestPendingCameraMessage;
+            _latestPendingCameraMessage = null;
+            if (messageToPost is not null)
+            {
+                _cameraMessageInFlight = true;
+                _cameraMessageGeneration = generation;
             }
         }
 
-        await PostCameraMessageAsync(nextMessage);
+        if (messageToPost is not null)
+        {
+            await PostCameraMessageAsync(messageToPost, generation);
+        }
     }
 
     private async Task RouteUnrealMessageAsync(string json, CancellationToken cancellationToken)
@@ -124,22 +188,25 @@ public sealed class BridgeMessageRouter : IDisposable
         if (metadata.Type == "camera.changed")
         {
             string? messageToPost = null;
+            long generation = 0;
             lock (_cameraLock)
             {
-                if (_cameraMessageInFlight)
+                if (_cameraMessageInFlight || !_webDocumentReady)
                 {
                     _latestPendingCameraMessage = json;
                 }
                 else
                 {
                     _cameraMessageInFlight = true;
+                    generation = _webDocumentGeneration;
+                    _cameraMessageGeneration = generation;
                     messageToPost = json;
                 }
             }
 
             if (messageToPost is not null)
             {
-                await PostCameraMessageAsync(messageToPost);
+                await PostCameraMessageAsync(messageToPost, generation);
             }
             return;
         }
@@ -147,8 +214,29 @@ public sealed class BridgeMessageRouter : IDisposable
         await _postToWebAsync(json);
     }
 
-    private async Task PostCameraMessageAsync(string json)
+    private async Task PostCameraMessageAsync(string json, long generation)
     {
+        lock (_cameraLock)
+        {
+            if (_disposed ||
+                !_webDocumentReady ||
+                !_cameraMessageInFlight ||
+                _cameraMessageGeneration != generation ||
+                _webDocumentGeneration != generation)
+            {
+                // Keep this frame only as a fallback. Never queue it behind a newer
+                // generation's in-flight or pending frame.
+                if (!_disposed &&
+                    !_webDocumentReady &&
+                    !_cameraMessageInFlight &&
+                    _latestPendingCameraMessage is null)
+                {
+                    _latestPendingCameraMessage = json;
+                }
+                return;
+            }
+        }
+
         try
         {
             await _postToWebAsync(json);
@@ -157,7 +245,19 @@ public sealed class BridgeMessageRouter : IDisposable
         {
             lock (_cameraLock)
             {
-                _cameraMessageInFlight = false;
+                if (_cameraMessageGeneration == generation &&
+                    _webDocumentGeneration == generation)
+                {
+                    _cameraMessageInFlight = false;
+                    _latestPendingCameraMessage ??= json;
+                }
+                else if (!_disposed &&
+                    !_webDocumentReady &&
+                    !_cameraMessageInFlight &&
+                    _latestPendingCameraMessage is null)
+                {
+                    _latestPendingCameraMessage = json;
+                }
             }
             throw;
         }
